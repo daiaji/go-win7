@@ -8,9 +8,9 @@
 # Stage 1: Build the patched Go SDK using an official Go image as the base
 FROM golang:1.24.5-alpine3.22 AS build
 
-# The base image already has Go. We only need git and patch.
+# The base image has Go. We need to add bash (for make.bash), git, and patch.
 # curl is usually included, but we add it for robustness.
-RUN apk add --no-cache git patch curl
+RUN apk add --no-cache bash git patch curl
 
 # Set a working directory for the patched source
 WORKDIR /usr/src/go-patched
