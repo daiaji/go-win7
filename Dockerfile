@@ -16,11 +16,11 @@ RUN apk add --no-cache bash git patch curl
 WORKDIR /usr/src/go-patched
 
 # Clone the specific Go source branch
-RUN git clone --depth 1 --branch release-branch.go1.24 https://github.com/golang/go.git .
+RUN git clone --depth 1 https://github.com/Snawoot/go-win7.git .
 
 # Download and apply the Windows 7 compatibility patch
-RUN curl -L -o win7.patch https://github.com/XTLS/go-win7/raw/refs/heads/build/unified-1-24-patch.diff && \
-    patch -p1 < win7.patch
+# RUN curl -L -o win7.patch https://github.com/XTLS/go-win7/raw/refs/heads/build/unified-1-24-patch.diff && \
+#     patch -p1 < win7.patch
 
 # Build Go from the patched source. The existing Go from the base image will act as the bootstrap compiler.
 WORKDIR /usr/src/go-patched/src
