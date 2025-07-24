@@ -37,7 +37,7 @@ RUN apk add --no-cache ca-certificates
 COPY --from=build /usr/src/go-patched /usr/local/go
 
 # Set Go environment variables for the new SDK
-ENV GOLANG_VERSION 1.24.5
+ENV GOLANG_VERSION 1.24.0
 # GOTOOLCHAIN=local is crucial to prevent Go from automatically replacing our patched toolchain
 ENV GOTOOLCHAIN=local
 ENV GOPATH /go
