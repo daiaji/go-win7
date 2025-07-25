@@ -28,25 +28,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 新增步骤：获取 go-legacy-win7 的最新 Release Tag
+      # 步骤 1: 获取 go-legacy-win7 的最新 Release Tag
       - name: Get latest go-legacy-win7 release
         id: get_go_version
         uses: pozetroninc/github-action-get-latest-release@master
         with:
           repository: ${{ env.GO_LEGACY_REPO }}
-          # 排除预发布和草稿版本，确保获取的是稳定版
           excludes: prerelease, draft
-          # 使用 GITHUB_TOKEN 可以避免 API 速率限制
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # 设置动态的镜像标签
+      # 步骤 2: 设置动态的镜像标签 (使用空格分隔)
       - name: Set Image Tags
         id: set_tags
         run: |
           RELEASE_VERSION=${{ steps.get_go_version.outputs.release }}
           # 去掉版本号前面的 'v'
           TAG_VERSION=${RELEASE_VERSION#v}
-          echo "IMAGE_TAGS=latest,${TAG_VERSION}" >> $GITHUB_ENV
+          # 关键修正：使用空格分隔标签，而不是逗号！并恢复了 github.sha 标签
+          echo "IMAGE_TAGS=latest ${TAG_VERSION} ${{ github.sha }}" >> $GITHUB_ENV
 
       - name: Install qemu dependency
         uses: docker/setup-qemu-action@v3
@@ -56,6 +55,7 @@ jobs:
         uses: redhat-actions/buildah-build@v2
         with:
           image: ${{ env.IMAGE_NAME }}
+          # 这里的 env.IMAGE_TAGS 将会是空格分隔的正确格式
           tags: ${{ env.IMAGE_TAGS }}
           platforms: linux/amd64, linux/arm64
           containerfiles: |
