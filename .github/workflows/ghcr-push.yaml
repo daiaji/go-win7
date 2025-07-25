@@ -1,15 +1,19 @@
 name: Push to GHCR
 on:
   push:
+    branches:
+      - main
   workflow_dispatch:
   schedule:
-    - cron: "0 0 * * *" # every day at midnight
+    - cron: "0 0 * * *" # 每天午夜运行一次，检查是否有新版本
+
 env:
   IMAGE_NAME: ${{ github.event.repository.name }}
-  IMAGE_TAGS: latest main ${{ github.sha }}
   IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
   REGISTRY_USER: ${{ github.actor }}
   REGISTRY_PASSWORD: ${{ github.token }}
+  # 目标仓库
+  GO_LEGACY_REPO: thongtech/go-legacy-win7
 
 jobs:
   push-ghcr:
@@ -18,14 +22,31 @@ jobs:
     permissions:
       contents: read
       packages: write
-      # This is used to complete the identity challenge
-      # with sigstore/fulcio when running outside of PRs.
       id-token: write
 
     steps:
-      # Checkout push-to-registry action github repository
-      - name: Checkout Push to Registry action
+      - name: Checkout repository
         uses: actions/checkout@v4
+
+      # 新增步骤：获取 go-legacy-win7 的最新 Release Tag
+      - name: Get latest go-legacy-win7 release
+        id: get_go_version
+        uses: pozetroninc/github-action-get-latest-release@master
+        with:
+          repository: ${{ env.GO_LEGACY_REPO }}
+          # 排除预发布和草稿版本，确保获取的是稳定版
+          excludes: prerelease, draft
+          # 使用 GITHUB_TOKEN 可以避免 API 速率限制
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # 设置动态的镜像标签
+      - name: Set Image Tags
+        id: set_tags
+        run: |
+          RELEASE_VERSION=${{ steps.get_go_version.outputs.release }}
+          # 去掉版本号前面的 'v'
+          TAG_VERSION=${RELEASE_VERSION#v}
+          echo "IMAGE_TAGS=latest,${TAG_VERSION}" >> $GITHUB_ENV
 
       - name: Install qemu dependency
         uses: docker/setup-qemu-action@v3
@@ -39,6 +60,9 @@ jobs:
           platforms: linux/amd64, linux/arm64
           containerfiles: |
             ./Dockerfile
+          # 将获取到的版本号作为构建参数传入 Dockerfile
+          build-args: |
+            LEGACY_GO_TAG=${{ steps.get_go_version.outputs.release }}
 
       - name: Push To GHCR
         uses: redhat-actions/push-to-registry@v2
@@ -51,5 +75,6 @@ jobs:
 
       - name: Echo image details
         run: |
+          echo "Successfully pushed image with tags:"
           echo "Image: ${{ steps.build_image_multiplatform.outputs.image }}"
           echo "Tags: ${{ steps.build_image_multiplatform.outputs.tags }}"
