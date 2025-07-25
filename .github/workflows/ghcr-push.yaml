@@ -5,14 +5,13 @@ on:
       - main
   workflow_dispatch:
   schedule:
-    - cron: "0 0 * * *" # 每天午夜运行一次，检查是否有新版本
+    - cron: "0 0 * * *" # 每天午夜运行一次
 
 env:
   IMAGE_NAME: ${{ github.event.repository.name }}
   IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
   REGISTRY_USER: ${{ github.actor }}
   REGISTRY_PASSWORD: ${{ github.token }}
-  # 目标仓库
   GO_LEGACY_REPO: thongtech/go-legacy-win7
 
 jobs:
@@ -28,7 +27,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 步骤 1: 获取 go-legacy-win7 的最新 Release Tag
       - name: Get latest go-legacy-win7 release
         id: get_go_version
         uses: pozetroninc/github-action-get-latest-release@master
@@ -37,14 +35,14 @@ jobs:
           excludes: prerelease, draft
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # 步骤 2: 设置动态的镜像标签 (使用空格分隔)
+      - name: Print Received Version
+        run: echo "Received go-legacy-win7 version is ${{ steps.get_go_version.outputs.release }}"
+
       - name: Set Image Tags
         id: set_tags
         run: |
           RELEASE_VERSION=${{ steps.get_go_version.outputs.release }}
-          # 去掉版本号前面的 'v'
           TAG_VERSION=${RELEASE_VERSION#v}
-          # 关键修正：使用空格分隔标签，而不是逗号！并恢复了 github.sha 标签
           echo "IMAGE_TAGS=latest ${TAG_VERSION} ${{ github.sha }}" >> $GITHUB_ENV
 
       - name: Install qemu dependency
@@ -55,12 +53,10 @@ jobs:
         uses: redhat-actions/buildah-build@v2
         with:
           image: ${{ env.IMAGE_NAME }}
-          # 这里的 env.IMAGE_TAGS 将会是空格分隔的正确格式
           tags: ${{ env.IMAGE_TAGS }}
           platforms: linux/amd64, linux/arm64
           containerfiles: |
             ./Dockerfile
-          # 将获取到的版本号作为构建参数传入 Dockerfile
           build-args: |
             LEGACY_GO_TAG=${{ steps.get_go_version.outputs.release }}
 

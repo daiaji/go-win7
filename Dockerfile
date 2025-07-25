@@ -1,14 +1,14 @@
 #
-# MODIFIED DOCKERFILE TO USE A DYNAMIC go-legacy-win7 VERSION
+# FINAL CORRECTED DOCKERFILE
 #
 
-# 定义一个构建参数 (build argument) 来接收版本标签。
-# 提供一个默认值，以便在没有外部参数的情况下也能成功构建。
-ARG LEGACY_GO_TAG=v1.24.5-1
-
+# --- 第一阶段：构建 ---
 FROM alpine:3.22 AS build
 
-# 将接收到的构建参数 ARG 赋值给环境变量 ENV，以便在 RUN 指令中使用。
+# 关键修正：将 ARG 指令移动到 FROM 之后，使其在当前阶段生效！
+ARG LEGACY_GO_TAG=v1.24.5-1
+
+# 现在，这个 ENV 指令可以正确地从 ARG 获取值
 ENV LEGACY_GO_TAG=${LEGACY_GO_TAG}
 ENV PATH /usr/local/go/bin:$PATH
 ENV GOLANG_VERSION 1.24.5
@@ -22,7 +22,6 @@ RUN set -eux; \
 	; \
 	arch="$(apk --print-arch)"; \
 	goArch=; \
-	# 根据 apk 架构映射到 Go 架构的名称
 	case "$arch" in \
 		'x86_64')  goArch='amd64'; ;; \
 		'armhf')   goArch='arm'; ;; \
@@ -32,28 +31,19 @@ RUN set -eux; \
 		*) echo >&2 "error: unsupported architecture '$arch' for go-legacy-win7 build"; exit 1 ;; \
 	esac; \
 	\
-	# 使用变量动态构建文件名和下载URL
-    # ${LEGACY_GO_TAG#v} 会移除版本标签开头的 'v' (例如: v1.24.5-1 -> 1.24.5-1)
 	fileName="go-legacy-win7-${LEGACY_GO_TAG#v}.linux_${goArch}.tar.gz"; \
 	url="https://github.com/thongtech/go-legacy-win7/releases/download/${LEGACY_GO_TAG}/${fileName}"; \
 	\
 	echo "Downloading Go from: $url"; \
 	wget -O go.tgz "$url"; \
 	\
-	# 注意：由于版本是动态获取的，我们无法在此处硬编码 SHA256 校验和。
-	# 我们依赖于通过 HTTPS 下载的安全性来保证文件的完整性。
-	# 之前静态的 sha256sum 检查已被移除。
-	\
 	tar -C /usr/local -xzf go.tgz; \
 	rm go.tgz; \
 	\
-	# save the timestamp from the tarball so we can restore it for reproducibility, if necessary (see below)
 	SOURCE_DATE_EPOCH="$(stat -c '%Y' /usr/local/go)"; \
 	export SOURCE_DATE_EPOCH; \
 	touchy="$(date -d "@$SOURCE_DATE_EPOCH" '+%Y%m%d%H%M.%S')"; \
-	# for logging validation/edification
 	date --date "@$SOURCE_DATE_EPOCH" --rfc-2822; \
-	# sanity check (detected value should be older than our wall clock)
 	[ "$SOURCE_DATE_EPOCH" -lt "$now" ]; \
 	\
 	if [ "$arch" = 'armv7' ]; then \
@@ -80,10 +70,8 @@ RUN set -eux; \
 	[ "$SOURCE_DATE_EPOCH" = "$epoch" ]; \
 	find /target -newer /target/usr/local/go -exec sh -c 'ls -ld "$@" && exit "$#"' -- '{}' +
 
-# --- Final Stage ---
+# --- 第二阶段：最终镜像 ---
 FROM alpine:3.22
-
-RUN apk add --no-cache ca-certificates
 
 ENV GOLANG_VERSION 1.24.5
 ENV GOTOOLCHAIN=local
