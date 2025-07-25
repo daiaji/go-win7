@@ -1,14 +1,12 @@
 #
-# FINAL CORRECTED DOCKERFILE
+# FINAL CORRECTED DOCKERFILE - Handles correct archive top-level directory per official docs
 #
 
 # --- 第一阶段：构建 ---
 FROM alpine:3.22 AS build
 
-# 关键修正：将 ARG 指令移动到 FROM 之后，使其在当前阶段生效！
 ARG LEGACY_GO_TAG=v1.24.5-1
 
-# 现在，这个 ENV 指令可以正确地从 ARG 获取值
 ENV LEGACY_GO_TAG=${LEGACY_GO_TAG}
 ENV PATH /usr/local/go/bin:$PATH
 ENV GOLANG_VERSION 1.24.5
@@ -39,6 +37,9 @@ RUN set -eux; \
 	\
 	tar -C /usr/local -xzf go.tgz; \
 	rm go.tgz; \
+	\
+	# 关键修正：根据官方文档，解压后的目录是 'go-legacy-win7'，我们将其重命名为 'go'
+	mv /usr/local/go-legacy-win7 /usr/local/go; \
 	\
 	SOURCE_DATE_EPOCH="$(stat -c '%Y' /usr/local/go)"; \
 	export SOURCE_DATE_EPOCH; \
